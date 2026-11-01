@@ -1,0 +1,6 @@
+{
+  "name": "FRACTURE – The Endless Mind Trap",
+  "description": "A high-octane 2D cyberpunk arcade survival game with dynamic arena fractures, power-ups, unlockable skins, and evolving hazards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

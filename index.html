@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FRACTURE – The Endless Mind Trap</title>
+  <meta name="description" content="A high-octane 2D cyberpunk arcade survival game with dynamic arena fractures, power-ups, unlockable skins, and evolving hazards." />
+  <meta property="og:title" content="FRACTURE – The Endless Mind Trap" />
+  <meta property="og:description" content="A high-octane 2D cyberpunk arcade survival game with dynamic arena fractures, power-ups, unlockable skins, and evolving hazards." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  
+  <!-- Cyberpunk Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-state="title">
+  <!-- Game Canvas Container -->
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    
+    <!-- Screen Glitch / Flash Overlay -->
+    <div id="fx-overlay" class="fx-overlay"></div>
+    <div id="vignette-overlay" class="vignette-overlay"></div>
+  </div>
+
+  <!-- IN-GAME HUD OVERLAY (World-Matched, Minimal Occlusion) -->
+  <div id="game-hud" class="hud-overlay" style="display: none;">
+    <!-- Top Left: Score, Mode & Combo -->
+    <div class="hud-cluster hud-top-left">
+      <div class="hud-kicker" id="hud-mode-kicker">CLASSIC SURVIVAL</div>
+      <div class="hud-hero-score">
+        <span class="hud-label">SCORE</span>
+        <span id="hud-score-val" class="hud-number">0</span>
+      </div>
+      <div class="hud-combo-row">
+        <div class="combo-meter-bar">
+          <div id="hud-combo-fill" class="combo-fill"></div>
+        </div>
+        <span id="hud-combo-badge" class="combo-badge">1.0X</span>
+      </div>
+    </div>
+
+    <!-- Top Center: Fracture Phase & Timer / Countdown -->
+    <div class="hud-cluster hud-top-center">
+      <div class="phase-indicator-pill">
+        <span class="phase-dot"></span>
+        <span id="hud-phase-name">PHASE 1: CYBER VOID</span>
+      </div>
+      <div class="survival-timer-wrap">
+        <span class="timer-icon">⏱</span>
+        <span id="hud-timer-val" class="hud-number">00:00.0</span>
+      </div>
+      <div class="fracture-countdown-wrap">
+        <span class="fracture-progress-label">NEXT FRACTURE</span>
+        <div class="fracture-progress-track">
+          <div id="hud-fracture-progress" class="fracture-progress-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Right: Utilities & Vitality / Shield Status -->
+    <div class="hud-cluster hud-top-right">
+      <div class="hud-utilities">
+        <button id="btn-sound-toggle" class="hud-icon-btn" title="Toggle Sound [M]" aria-label="Toggle Sound">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path id="sound-icon-path" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+        </button>
+        <button id="btn-pause-toggle" class="hud-icon-btn" title="Pause Game [Esc / P]" aria-label="Pause Game">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16" rx="1"/>
+            <rect x="14" y="4" width="4" height="16" rx="1"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="core-vitality-card">
+        <div class="vitality-row">
+          <span class="hud-label">SHIELD</span>
+          <span id="hud-shield-status" class="shield-indicator ready">READY</span>
+        </div>
+        <div class="vitality-row">
+          <span class="hud-label">DASH</span>
+          <div class="dash-cooldown-bar">
+            <div id="hud-dash-fill" class="dash-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Center: Active Power-ups Bar -->
+    <div id="hud-powerups" class="hud-powerups-dock">
+      <!-- Dynamic Power-up Pills Populated By JS -->
+    </div>
+
+    <!-- Bottom Left: Energy Fragments Collected -->
+    <div class="hud-cluster hud-bottom-left">
+      <div class="shards-counter">
+        <span class="shard-icon">◆</span>
+        <span id="hud-energy-val" class="hud-number">0</span>
+        <span class="hud-sublabel">FRAGMENTS</span>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Flat Controls Hint (hidden on touch devices) -->
+    <div class="hud-cluster hud-bottom-right desk-controls-hint">
+      <span>WASD / ARROWS: Move</span>
+      <span class="hint-sep">·</span>
+      <span>SPACE / R-CLICK: Dash</span>
+      <span class="hint-sep">·</span>
+      <span>ESC: Pause</span>
+    </div>
+
+    <!-- Touch Virtual Controls for Mobile -->
+    <div id="mobile-controls" class="mobile-controls" style="display: none;">
+      <div id="touch-joystick-zone" class="joystick-zone">
+        <div id="touch-joystick-base" class="joystick-base">
+          <div id="touch-joystick-knob" class="joystick-knob"></div>
+        </div>
+      </div>
+      <div class="touch-actions-zone">
+        <button id="touch-btn-dash" class="touch-action-btn dash-btn" aria-label="Dash">
+          <span>DASH</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TITLE / MAIN MENU SCREEN -->
+  <div id="screen-title" class="screen-overlay active">
+    <div class="title-backdrop-glow"></div>
+    <div class="title-container">
+      
+      <!-- Logo Lockup -->
+      <div class="brand-lockup">
+        <div class="brand-kicker">NEON PROTOCOL // SIMULATION 2088</div>
+        <h1 class="glitch-title" data-text="FRACTURE">
+          <span class="title-main">FRACTURE</span>
+          <span class="title-sub">THE ENDLESS MIND TRAP</span>
+        </h1>
+        <p class="brand-tagline">Survive the evolving digital arena. Adapt as the reality fractures.</p>
+      </div>
+
+      <!-- Mode Selector Tabs -->
+      <div class="mode-select-dock">
+        <button class="mode-tab active" data-mode="classic">
+          <span class="mode-title">CLASSIC</span>
+          <span class="mode-desc">Endless survival &amp; 30s fracture shifts</span>
+        </button>
+        <button class="mode-tab" data-mode="timeattack">
+          <span class="mode-title">TIME ATTACK</span>
+          <span class="mode-desc">90s hyper-speed score frenzy</span>
+        </button>
+        <button class="mode-tab" data-mode="chaos">
+          <span class="mode-title">CHAOS</span>
+          <span class="mode-desc">Uncapped hazards &amp; 15s rapid fractures</span>
+        </button>
+      </div>
+
+      <!-- Primary Action Buttons -->
+      <div class="title-actions">
+        <button id="btn-play-game" class="cta-btn primary-cta" data-start="true">
+          <span class="btn-glow"></span>
+          <span class="btn-text">INITIALIZE CORE</span>
+          <span class="btn-key-hint">[SPACE / ENTER]</span>
+        </button>
+        
+        <div class="secondary-btn-row">
+          <button id="btn-open-skins" class="cta-btn secondary-cta">
+            <span class="icon">⬡</span> CORE SKINS
+          </button>
+          <button id="btn-open-achievements" class="cta-btn secondary-cta">
+            <span class="icon">★</span> ACHIEVEMENTS
+          </button>
+          <button id="btn-open-stats" class="cta-btn secondary-cta">
+            <span class="icon">📊</span> STATS
+          </button>
+          <button id="btn-open-settings" class="cta-btn secondary-cta">
+            <span class="icon">⚙</span> SETTINGS
+          </button>
+        </div>
+      </div>
+
+      <!-- Daily Challenge Widget -->
+      <div class="daily-challenge-banner" id="daily-banner">
+        <div class="daily-header">
+          <span class="badge-daily">DAILY CHALLENGE</span>
+          <span id="daily-date-label">TODAY</span>
+        </div>
+        <div class="daily-title" id="daily-modifier-title">Magnetic Overload + Swift Hazard Flux</div>
+        <div class="daily-score-info">Today's Best: <span id="daily-best-val" class="highlight-val">0</span> pts</div>
+      </div>
+
+      <!-- Single Flat Control Hint -->
+      <div class="title-footer-hint">
+        <span>WASD / Arrow Keys to Steer Core</span>
+        <span class="sep">·</span>
+        <span>Space / Right-Click to Dash</span>
+        <span class="sep">·</span>
+        <span>Touch or Mouse drag supported</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CORE SKINS MODAL -->
+  <dialog id="modal-skins" class="game-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">CORE MATRIX // HANGAR</h2>
+        <button class="modal-close-btn" data-close="modal-skins" aria-label="Close Skins Modal">✕</button>
+      </div>
+      <p class="modal-subtitle">Equip earned core appearances. Unlock new skins through gameplay feats.</p>
+      
+      <div class="skins-grid" id="skins-grid-container">
+        <!-- Rendered by JS -->
+      </div>
+      
+      <div class="modal-footer">
+        <button class="cta-btn secondary-cta" data-close="modal-skins">RETURN</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ACHIEVEMENTS MODAL -->
+  <dialog id="modal-achievements" class="game-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">SYSTEM ARCHIVES // ACHIEVEMENTS</h2>
+        <button class="modal-close-btn" data-close="modal-achievements" aria-label="Close Achievements Modal">✕</button>
+      </div>
+      <div class="achievements-summary">
+        Unlocked: <span id="achieve-count" class="highlight-val">0 / 8</span>
+      </div>
+      <div class="achievements-list" id="achievements-list-container">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="cta-btn secondary-cta" data-close="modal-achievements">RETURN</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- STATS & RECORDS MODAL -->
+  <dialog id="modal-stats" class="game-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">NEURAL RECORDS // STATISTICS</h2>
+        <button class="modal-close-btn" data-close="modal-stats" aria-label="Close Statistics Modal">✕</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-num" id="stat-total-games">0</span>
+          <span class="stat-label">RUNS INITIALIZED</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num" id="stat-high-score">0</span>
+          <span class="stat-label">RECORD HIGH SCORE</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num" id="stat-max-survival">00:00</span>
+          <span class="stat-label">LONGEST SURVIVAL</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num" id="stat-total-energy">0</span>
+          <span class="stat-label">FRAGMENTS COLLECTED</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num" id="stat-max-combo">1.0X</span>
+          <span class="stat-label">PEAK COMBO MULTIPLIER</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num" id="stat-total-fractures">0</span>
+          <span class="stat-label">FRACTURES SURVIVED</span>
+        </div>
+      </div>
+
+      <div class="leaderboard-section">
+        <div class="section-title">TOP RUNS PER MODE</div>
+        <div class="mode-records-row">
+          <div class="mode-record-card">
+            <span class="rec-mode">CLASSIC</span>
+            <span id="rec-classic" class="rec-val">0 pts</span>
+          </div>
+          <div class="mode-record-card">
+            <span class="rec-mode">TIME ATTACK</span>
+            <span id="rec-timeattack" class="rec-val">0 pts</span>
+          </div>
+          <div class="mode-record-card">
+            <span class="rec-mode">CHAOS</span>
+            <span id="rec-chaos" class="rec-val">0 pts</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cta-btn secondary-cta" data-close="modal-stats">RETURN</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- SETTINGS MODAL -->
+  <dialog id="modal-settings" class="game-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">TERMINAL // CONFIGURATION</h2>
+        <button class="modal-close-btn" data-close="modal-settings" aria-label="Close Settings Modal">✕</button>
+      </div>
+      
+      <div class="settings-form">
+        <div class="setting-row">
+          <label for="setting-master-vol">MASTER VOLUME</label>
+          <div class="slider-wrap">
+            <input type="range" id="setting-master-vol" min="0" max="100" value="80" />
+            <span id="val-master-vol">80%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label for="setting-sfx-vol">SOUND EFFECTS (SFX)</label>
+          <div class="slider-wrap">
+            <input type="range" id="setting-sfx-vol" min="0" max="100" value="85" />
+            <span id="val-sfx-vol">85%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label for="setting-bgm-vol">SYNTH BGM / CHORD DRONE</label>
+          <div class="slider-wrap">
+            <input type="range" id="setting-bgm-vol" min="0" max="100" value="65" />
+            <span id="val-bgm-vol">65%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label for="setting-control-scheme">STEERING MODE</label>
+          <select id="setting-control-scheme">
+            <option value="wasd">WASD / Arrow Keys (Default)</option>
+            <option value="mouse">Mouse Cursor Follow</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label for="setting-shake">SCREEN SHAKE DYNAMICS</label>
+          <select id="setting-shake">
+            <option value="full">Full Intensity (Intense)</option>
+            <option value="medium">Reduced</option>
+            <option value="off">Disabled</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label for="setting-particles">PARTICLE DENSITY</label>
+          <select id="setting-particles">
+            <option value="high">High (Maximum Bloom)</option>
+            <option value="medium">Balanced</option>
+            <option value="low">Performance (Minimal)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cta-btn primary-cta" data-close="modal-settings">SAVE &amp; CLOSE</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- PAUSE MODAL -->
+  <dialog id="modal-pause" class="game-modal">
+    <div class="modal-card pause-card">
+      <div class="status-badge pause-badge">SIMULATION SUSPENDED</div>
+      <h2 class="modal-title">FRACTURE PAUSED</h2>
+      <div class="pause-stats-row">
+        <div class="pstat"><span class="lbl">CURRENT SCORE</span><span id="pause-score-val" class="val">0</span></div>
+        <div class="pstat"><span class="lbl">TIME SURVIVED</span><span id="pause-time-val" class="val">00:00</span></div>
+        <div class="pstat"><span class="lbl">CURRENT PHASE</span><span id="pause-phase-val" class="val">1</span></div>
+      </div>
+      <div class="pause-actions">
+        <button id="btn-pause-resume" class="cta-btn primary-cta">RESUME [ESC]</button>
+        <button id="btn-pause-restart" class="cta-btn secondary-cta">RESTART RUN [R]</button>
+        <button id="btn-pause-settings" class="cta-btn secondary-cta">SETTINGS</button>
+        <button id="btn-pause-quit" class="cta-btn secondary-cta">ABORT TO MENU</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- GAME OVER / RUN SUMMARY MODAL -->
+  <dialog id="modal-gameover" class="game-modal">
+    <div class="modal-card gameover-card">
+      <div class="status-badge gameover-badge" id="gameover-banner-type">CORE COMPROMISED</div>
+      <h2 class="modal-title" id="gameover-headline">FRACTURE COLLAPSE</h2>
+      <p class="modal-subtitle" id="gameover-cause">The digital arena engulfed your core integrity.</p>
+
+      <div class="gameover-results-grid">
+        <div class="result-tile main-score-tile">
+          <span class="rt-label">FINAL SCORE</span>
+          <span id="go-score-val" class="rt-val hero-num">0</span>
+          <span id="go-new-best" class="new-best-pill" style="display: none;">NEW PERSONAL BEST!</span>
+        </div>
+        <div class="result-tile">
+          <span class="rt-label">TIME SURVIVED</span>
+          <span id="go-time-val" class="rt-val">00:00.0</span>
+        </div>
+        <div class="result-tile">
+          <span class="rt-label">FRACTURES WITNESSED</span>
+          <span id="go-fractures-val" class="rt-val">0</span>
+        </div>
+        <div class="result-tile">
+          <span class="rt-label">FRAGMENTS HARVESTED</span>
+          <span id="go-fragments-val" class="rt-val">0</span>
+        </div>
+        <div class="result-tile">
+          <span class="rt-label">PEAK COMBO</span>
+          <span id="go-combo-val" class="rt-val">1.0X</span>
+        </div>
+        <div class="result-tile">
+          <span class="rt-label">BEST RECORD</span>
+          <span id="go-best-val" class="rt-val">0</span>
+        </div>
+      </div>
+
+      <!-- Unlocked skins/achievements alert if any -->
+      <div id="go-unlock-banner" class="unlock-banner" style="display: none;">
+        <span class="unlock-icon">🎉</span>
+        <div class="unlock-info">
+          <span class="unlock-title" id="go-unlock-title">NEW CORE UNLOCKED!</span>
+          <span class="unlock-desc" id="go-unlock-desc">Solar Flare skin now available in Hangar.</span>
+        </div>
+      </div>
+
+      <div class="gameover-actions">
+        <button id="btn-go-retry" class="cta-btn primary-cta" data-start="true">
+          <span class="btn-glow"></span>
+          <span class="btn-text">RETRY RUN</span>
+          <span class="btn-key-hint">[SPACE / ENTER]</span>
+        </button>
+        <button id="btn-go-menu" class="cta-btn secondary-cta">
+          RETURN TO MENU
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- FRACTURE ALERT BANNER (In-Game Animated Cinematic Notification) -->
+  <div id="fracture-alert-toast" class="fracture-alert-toast" style="display: none;">
+    <div class="alert-glitch-border"></div>
+    <div class="alert-icon">⚡</div>
+    <div class="alert-content">
+      <div class="alert-kicker" id="alert-kicker-text">FRACTURE EVENT DETECTED</div>
+      <div class="alert-headline" id="alert-headline-text">ENTERING PHASE 2: NEON NEXUS</div>
+      <div class="alert-desc" id="alert-desc-text">Warning: Oscillating Laser Grid Active</div>
+    </div>
+  </div>
+
+  <!-- Main Game Engine Script -->
+  <script src="script.js"></script>
+</body>
+</html>
